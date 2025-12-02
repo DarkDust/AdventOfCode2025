@@ -107,7 +107,7 @@ fn part2(input: &str) -> Result<(), Error> {
 }
 
 fn main() -> Result<(), Error> {
-    let input = include_str!("../rsc/sample1.txt");
+    let input = include_str!("../rsc/input.txt");
 
     let start1 = Instant::now();
     part1(input)?;
