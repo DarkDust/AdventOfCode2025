@@ -54,15 +54,16 @@ fn is_invalid_value(value: u64, min_repetitions: u64, max_repetitions: u64) -> b
             continue;
         }
 
-        let pattern = value / 10u64.pow((digits - i) as u32);
         let repetitions = digits / i;
         if repetitions < min_repetitions || repetitions > max_repetitions {
             continue;
         }
 
+        let pattern = value / 10u64.pow((digits - i) as u32);
+        let multiplicator = 10u64.pow(i as u32);
         let mut candidate = 0;
         for _ in 0..repetitions {
-            candidate *= 10u64.pow(i as u32);
+            candidate *= multiplicator;
             candidate += pattern;
         }
         if candidate == value {
