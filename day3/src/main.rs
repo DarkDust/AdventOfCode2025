@@ -3,7 +3,7 @@ use std::time::Instant;
 #[derive(Debug)]
 enum Error {}
 
-fn max_num(bank: &Vec<u64>, num_digits: u64) -> u64 {
+fn max_num_recursive(bank: &Vec<u64>, num_digits: u64) -> u64 {
     let mut max = 0;
     for i in 0..=(bank.len() - num_digits as usize) {
         let candidate = recurse(bank, num_digits, 0, i, 0, max);
@@ -12,6 +12,31 @@ fn max_num(bank: &Vec<u64>, num_digits: u64) -> u64 {
         }
     }
     return max;
+}
+
+// Since I wasn't satisfied with my recursive solution (took 5s for the second part), I looked
+// up how other people solved it. This is a pretty elegant algorithm, and it solve part 2 in
+// less than 2ms, so quite the improvement…
+fn max_num_iterative(bank: &Vec<u64>, num_digits: u64) -> u64 {
+    let mut start = 0;
+    let mut sum = 0;
+    for end in (bank.len() - (num_digits - 1) as usize)..=bank.len() {
+        let mut index = start;
+        let mut largest = 0;
+
+        for i in start..end {
+            let digit = bank[i];
+            if digit > largest {
+                largest = digit;
+                index = i;
+            }
+        }
+
+        sum *= 10;
+        sum += largest;
+        start = index + 1;
+    }
+    return sum;
 }
 
 fn recurse(
@@ -57,7 +82,7 @@ fn solve(input: &str, num_digits: u64) -> Result<u64, Error> {
 
     let sum = banks
         .into_iter()
-        .map(|bank| max_num(&bank, num_digits))
+        .map(|bank| max_num_iterative(&bank, num_digits))
         .sum::<u64>();
 
     Ok(sum)
