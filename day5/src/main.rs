@@ -2,6 +2,7 @@ use std::ops::RangeInclusive;
 use std::time::Instant;
 
 #[derive(Debug)]
+#[allow(dead_code)]
 enum Error {
     InvalidInput,
     InvalidNumber(String),
@@ -15,16 +16,16 @@ struct Cafeteria {
 
 impl Cafeteria {
     fn from_input(input: &str) -> Result<Cafeteria, Error> {
-        let (rangeInput, ingredientInput) =
+        let (range_input, ingredient_input) =
             input.trim().split_once("\n\n").ok_or(Error::InvalidInput)?;
-        let ingredients = ingredientInput
+        let ingredients = ingredient_input
             .lines()
             .map(|line| {
                 line.parse::<u64>()
                     .map_err(|_| Error::InvalidNumber(line.to_string()))
             })
             .collect::<Result<Vec<u64>, Error>>()?;
-        let fresh_ranges = rangeInput
+        let fresh_ranges = range_input
             .lines()
             .map(|line| {
                 let (start, end) = line

@@ -1,6 +1,7 @@
 use std::time::Instant;
 
 #[derive(Debug)]
+#[allow(dead_code)]
 enum Error {
     InvalidInput(String),
     InvalidNumber(String),

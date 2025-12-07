@@ -3,6 +3,7 @@ use std::time::Instant;
 #[derive(Debug)]
 enum Error {}
 
+#[allow(dead_code)]
 fn max_num_recursive(bank: &Vec<u64>, num_digits: u64) -> u64 {
     let mut max = 0;
     for i in 0..=(bank.len() - num_digits as usize) {
