@@ -43,8 +43,8 @@ impl JunctionBox {
         (a * a + b * b + c * c).sqrt()
     }
 
-    // Get a stable key for a pair of junction boxes, irrespective of their order.
-    fn pair_key(&self, other: &JunctionBox) -> (JunctionBox, JunctionBox) {
+    // Order the receiver and argument in a stable way.
+    fn sort_boxes(&self, other: &JunctionBox) -> (JunctionBox, JunctionBox) {
         if self.x < other.x {
             return (self.clone(), other.clone());
         } else if self.x > other.x {
@@ -123,7 +123,7 @@ fn circuit_size(
             let start_box = &boxes[start];
             let end_box = &boxes[end];
             let distance = start_box.distance(end_box);
-            let key = start_box.pair_key(end_box);
+            let key = start_box.sort_boxes(end_box);
             distances.push((key.0, key.1, distance));
         }
     }
@@ -160,7 +160,7 @@ fn cable_length(boxes: &Vec<JunctionBox>) -> Result<i64, Error> {
             let start_box = &boxes[start];
             let end_box = &boxes[end];
             let distance = start_box.distance(end_box);
-            let key = start_box.pair_key(end_box);
+            let key = start_box.sort_boxes(end_box);
             distances.push((key.0, key.1, distance));
         }
     }
