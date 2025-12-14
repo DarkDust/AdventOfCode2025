@@ -16,6 +16,7 @@ type Shape = [[bool; 3]; 3];
 
 struct Present {
     // All unique variants of the present, rotated and flipped.
+    #[allow(dead_code)]
     variants: Vec<Shape>,
     // How many cells are occupied by the present. Used to quickly estimate if a region can fit.
     occupied_cells: usize,
@@ -233,22 +234,6 @@ impl Present {
 
         return (horizontal, vertical);
     }
-
-    fn print_shape(shape: &Shape) {
-        for y in 0..3 {
-            for x in 0..3 {
-                print!("{}", if shape[y][x] { '#' } else { '.' });
-            }
-            println!();
-        }
-        println!();
-    }
-
-    fn print(&self) {
-        for variant in &self.variants {
-            Present::print_shape(variant);
-        }
-    }
 }
 
 impl Region {
@@ -298,21 +283,12 @@ fn part1(input: &str) -> Result<(), Error> {
     return Ok(());
 }
 
-fn part2(input: &str) -> Result<(), Error> {
-    println!("Part 2: TBD");
-    return Ok(());
-}
-
 fn main() -> Result<(), Error> {
     let input = include_str!("../rsc/input.txt");
 
     let start1 = Instant::now();
     part1(input)?;
     println!("Elapsed: {:.2?}\n", start1.elapsed());
-
-    let start2 = Instant::now();
-    part2(input)?;
-    println!("Elapsed: {:.2?}", start2.elapsed());
 
     Ok(())
 }
