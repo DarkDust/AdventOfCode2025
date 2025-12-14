@@ -103,7 +103,7 @@ fn part2(input: &str) -> Result<(), Error> {
         .collect::<Vec<_>>();
     let sum = invalid_values.iter().sum::<u64>();
 
-    println!("Part : {}", sum);
+    println!("Part 2: {}", sum);
     return Ok(());
 }
 
