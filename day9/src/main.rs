@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::time::Instant;
 
 #[derive(Debug)]
@@ -13,11 +13,20 @@ enum HitResult {
     OnLine,
 }
 
+type Point = (i64, i64);
+
 struct Map {
-    tiles: Vec<(i64, i64)>,
+    tiles: Vec<Point>,
 }
 
-fn parse_line(line: &str) -> Result<(i64, i64), Error> {
+struct CoordinateCompressor {
+    // Tiles in compressed space.
+    tiles: Vec<Point>,
+    // Map to uncompressed space.
+    compressed_points: HashMap<Point, Point>,
+}
+
+fn parse_line(line: &str) -> Result<Point, Error> {
     let parts = line
         .split_once(',')
         .ok_or(Error::InvalidInput(line.to_string()))?;
@@ -34,7 +43,7 @@ fn parse_line(line: &str) -> Result<(i64, i64), Error> {
     ));
 }
 
-fn area(p1: (i64, i64), p2: (i64, i64)) -> i64 {
+fn area(p1: Point, p2: Point) -> i64 {
     (p1.0.max(p2.0) - p1.0.min(p2.0) + 1) * (p1.1.max(p2.1) - p1.1.min(p2.1) + 1)
 }
 
@@ -44,7 +53,7 @@ impl Map {
             .trim()
             .lines()
             .map(|line| parse_line(line))
-            .collect::<Result<Vec<(i64, i64)>, Error>>()?;
+            .collect::<Result<Vec<Point>, Error>>()?;
 
         return Ok(Map { tiles: coords });
     }
@@ -66,36 +75,40 @@ impl Map {
     }
 
     fn max_area_complicated(&self) -> Result<i64, Error> {
-        // This is not a good solution, because it's slow, uses a lot of memory,
-        // but works… took 32 seconds to run on my MacBook Pro.
+        // Basically it's ray casting to check whether a point is inside the polygon, and uses a
+        // HashMap to cache results. For each area, only the sides are checked since if they're
+        // all inside, the rest of the area is inside as well.
         //
-        // Basically it's ray casting to check whether a point is inside the polygon,
-        // and uses a HashMap to cache results. For each area, only the sides are checked
-        // since if they're all inside, the rest of the area is inside as well.
-        //
-        // There's surely a clever way to optimize this, or a much better algorithm.
-        // Even though I already had this ray casting idea almost immediately, it took me
-        // much too long to get it right and I don't feel like implementing a better
-        // solution right now.
+        // To optimize the ray casting, the coordinates are compressed: the input contains
+        // coordinates with large-ish components, which would make the ray casting algorithm
+        // expensive. However, there are much less DISTINCT coordinates, and by mapping the large
+        // components to the smallest possible ones, the ray casting algorithm runs MUCH faster:
+        // This compression brings the runtime down to ~65ms from about 30 seconds!
 
         if self.tiles.len() < 2 {
             return Err(Error::InvalidInput("Not enough tiles".to_string()));
         }
 
-        let mut closed = self.tiles.clone();
+        let compressor = CoordinateCompressor::from_map(self);
+
+        let mut closed = compressor.tiles.clone();
         closed.push(closed[0]);
         let lines = closed
             .windows(2)
             .map(|p| (p[0], p[1]))
-            .collect::<Vec<((i64, i64), (i64, i64))>>();
+            .collect::<Vec<(Point, Point)>>();
 
         let mut max_valid_area = 0;
         let mut cache = HashMap::new();
-        for start in 0..self.tiles.len() - 1 {
-            for end in (start + 1)..self.tiles.len() {
-                let p1 = self.tiles[start];
-                let p2 = self.tiles[end];
-                let area = area(p1, p2);
+        for start in 0..compressor.tiles.len() - 1 {
+            for end in (start + 1)..compressor.tiles.len() {
+                let p1 = compressor.tiles[start];
+                let p2 = compressor.tiles[end];
+
+                // Need to calculate the area in uncompressed space.
+                let uncompressed_p1 = compressor.decompress(&p1);
+                let uncompressed_p2 = compressor.decompress(&p2);
+                let area = area(uncompressed_p1, uncompressed_p2);
                 if area <= max_valid_area {
                     // Not worth investigating.
                     continue;
@@ -113,10 +126,10 @@ impl Map {
     }
 
     fn is_valid_area(
-        p1: (i64, i64),
-        p2: (i64, i64),
-        lines: &Vec<((i64, i64), (i64, i64))>,
-        cache: &mut HashMap<(i64, i64), bool>,
+        p1: Point,
+        p2: Point,
+        lines: &Vec<(Point, Point)>,
+        cache: &mut HashMap<Point, bool>,
     ) -> bool {
         let upper_left = (p1.0.min(p2.0), p1.1.min(p2.1));
         let lower_left = (p1.0.min(p2.0), p1.1.max(p2.1));
@@ -154,9 +167,9 @@ impl Map {
     }
 
     fn is_inside(
-        point: (i64, i64),
-        lines: &Vec<((i64, i64), (i64, i64))>,
-        cache: &mut HashMap<(i64, i64), bool>,
+        point: Point,
+        lines: &Vec<(Point, Point)>,
+        cache: &mut HashMap<Point, bool>,
     ) -> bool {
         if let Some(result) = cache.get(&point) {
             return *result;
@@ -179,7 +192,7 @@ impl Map {
         return hit;
     }
 
-    fn hits_line(point: (i64, i64), line: &((i64, i64), (i64, i64))) -> HitResult {
+    fn hits_line(point: Point, line: &(Point, Point)) -> HitResult {
         // Assume a ray from (0, y) - (x, y). Check if there is an intersection with the line.
         let x = point.0;
         let y = point.1;
@@ -235,6 +248,45 @@ impl Map {
             // Has crossed the line.
             return HitResult::Hit;
         }
+    }
+}
+
+impl CoordinateCompressor {
+    fn from_map(map: &Map) -> CoordinateCompressor {
+        let mut compressed_x = HashMap::new();
+        let mut compressed_y = HashMap::new();
+        let mut compressed_points = HashMap::new();
+
+        let mut xs = BTreeSet::new();
+        let mut ys = BTreeSet::new();
+        for point in &map.tiles {
+            xs.insert(point.0);
+            ys.insert(point.1);
+        }
+
+        for (i, x) in xs.iter().enumerate() {
+            compressed_x.insert(*x, i as i64);
+        }
+        for (i, y) in ys.iter().enumerate() {
+            compressed_y.insert(*y, i as i64);
+        }
+
+        let mut compressed_tiles = Vec::new();
+        for point in &map.tiles {
+            let mapped_x = compressed_x.get(&point.0).unwrap();
+            let mapped_y = compressed_y.get(&point.1).unwrap();
+            compressed_points.insert((*mapped_x, *mapped_y), *point);
+            compressed_tiles.push((*mapped_x, *mapped_y));
+        }
+
+        return CoordinateCompressor {
+            tiles: compressed_tiles,
+            compressed_points,
+        };
+    }
+
+    fn decompress(&self, point: &Point) -> Point {
+        return *self.compressed_points.get(point).unwrap();
     }
 }
 
