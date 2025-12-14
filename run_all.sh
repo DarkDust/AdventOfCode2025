@@ -1,10 +1,12 @@
 #!/bin/bash
 
-for day in ./day* ; do
-	cd "$day"
-	cargo build --release
-	cd ..
-done
+if [ "$1" != "nobuild" ] ; then
+	for day in ./day* ; do
+		cd "$day"
+		cargo build --release
+		cd ..
+	done
+fi
 
 for day in $(ls -d day* | sort -V); do
 	echo
